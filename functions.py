@@ -4,13 +4,10 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import os
-import math
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
-from sklearn.datasets import make_blobs, make_moons
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -19,51 +16,12 @@ import matplotlib.pyplot as plt
 # Functions and Classes
 
 
-# Classification by neural network
-
-# Declare a class for MLP (multilayer perceptron)
-class MLP_nn(nn.Module):
-    
-    # class initialization, here we define all the ingredients that we will need for the network (layers, activations...)
-    def __init__(self, input_size, hidden1_size, hidden2_size, output_size):
-        super(MLP_nn, self).__init__()
-        # fully connected layer with linear activation
-        self.fc0 = nn.Linear(input_size, hidden1_size)
-        # fully connected layer with linear activation
-        self.fc1 = nn.Linear(hidden1_size, hidden2_size)
-        # fully connected layer with linear activation
-        self.fc2 = nn.Linear(hidden2_size, output_size)
-        # ReLu activation
-        self.relu = nn.ReLU()
-        # sigmoid activation
-        self.sigmoid = nn.Sigmoid()
-
-        self.L_stack = nn.Sequential(
-            self.fc0,
-            self.relu,
-            self.fc1,
-            self.relu,
-            self.fc2,
-            self.sigmoid
-        )
-        
-    # function to apply the neural network: use all the ingredients above to define the forward pass
-    def forward(self, x):
-        y_pred = self.L_stack(x)
-        return y_pred
-
-def initialize_MLP(input_size, hidden1_size, hidden2_size, output_size):
-    # create an instance of the MLP_nn class
-    MLP = MLP_nn(input_size, hidden1_size, hidden2_size, output_size)
-    return MLP
-
-
 ## ------------- LDA and QDA (Linear and Quadratic Discriminant Analysis) -------------
 
 # define training/test split
 
 def dataset_split(X):
-    X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.33)
+    X_train, X_test, y_train, y_test = train_test_split(X, test_size=0.33)
 
 # LDA classification algorithm (using Mahalanobis distance)
 
@@ -79,24 +37,23 @@ def LDA_classifier_train_cov(training_data,training_labels,nb_classes):
         class_cov[i,:,:] = np.cov(training_data[training_labels == i,:].T)   # we need to estimate the covariance for each class
     return class_means, class_cov
 
-# def LDA_classifier_predict_cov(test_data,class_means,class_cov,nb_classes):
-#     norms = np.zeros((test_data.shape[0],nb_classes))
-#     for i in range(nb_classes):
-#         ## Using apply_along_axis
-#         norms[:,i] = np.apply_along_axis \ 
-#             (weighted_norm,1,test_data-class_means[i,:], cov = class_cov)
+def LDA_classifier_predict_cov(test_data,class_means,class_cov,nb_classes):
+    norms = np.zeros((test_data.shape[0],nb_classes))
+    for i in range(nb_classes):
+        ## Using apply_along_axis
+        norms[:,i] = np.apply_along_axis(weighted_norm,1,test_data-class_means[i,:], cov = class_cov)
         
-#         # ## Not using the apply_along_axis (because I find it simpler for students to understand the correction)
-#         # ## Note though that it is very long! 2min on my machine
-#         # # Calculate the difference between test data and class mean
-#         # diff = test_data - class_means[i,:]
-#         # # Calculate Mahalanobis distance for each test point
-#         # for j in range(test_data.shape[0]):
-#         #     # norms[j,i] = weighted_norm(diff[j,:], cov)
-#         #     norms[j,i] = np.dot(diff[j,:],np.dot(np.linalg.inv(cov),diff[j,:]))
+        # ## Not using the apply_along_axis (because I find it simpler for students to understand the correction)
+        # ## Note though that it is very long! 2min on my machine
+        # # Calculate the difference between test data and class mean
+        # diff = test_data - class_means[i,:]
+        # # Calculate Mahalanobis distance for each test point
+        # for j in range(test_data.shape[0]):
+        #     # norms[j,i] = weighted_norm(diff[j,:], cov)
+        #     norms[j,i] = np.dot(diff[j,:],np.dot(np.linalg.inv(cov),diff[j,:]))
 
-#     predicted_labels = np.argmin(norms,axis =1)
-#     return predicted_labels
+    predicted_labels = np.argmin(norms,axis =1)
+    return predicted_labels
 
 # QDA classification algorithm
 
@@ -144,6 +101,8 @@ def plot_decision_boundary_cov(x,y,X,labels,class_means, cov, classifier):
     # plt.scatter(X[:,0],X[:,1], c = labels)
     # plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu, alpha = 0.6)
 
+    nb_classes = np.shape(class_means)[0]
+
     x_coords, y_coords = np.meshgrid(x, y)
     
     # Convert the 2D grids into a list of coordinate pairs
@@ -159,7 +118,45 @@ def plot_decision_boundary_cov(x,y,X,labels,class_means, cov, classifier):
     plt.scatter(X[:,0],X[:,1], c = labels)
     plt.contourf(x_coords, y_coords, classify_grid, cmap=plt.cm.RdBu, alpha = 0.6)
 
-# Tensor and scale the data for Pytorch   
+# Classification by neural network
+
+# Declare a class for MLP (multilayer perceptron)
+class MLP_nn(nn.Module):
+    
+    # class initialization, here we define all the ingredients that we will need for the network (layers, activations...)
+    def __init__(self, input_size, hidden1_size, hidden2_size, output_size):
+        super(MLP_nn, self).__init__()
+        # fully connected layer with linear activation
+        self.fc0 = nn.Linear(input_size, hidden1_size)
+        # fully connected layer with linear activation
+        self.fc1 = nn.Linear(hidden1_size, hidden2_size)
+        # fully connected layer with linear activation
+        self.fc2 = nn.Linear(hidden2_size, output_size)
+        # ReLu activation
+        self.relu = nn.ReLU()
+        # sigmoid activation
+        self.sigmoid = nn.Sigmoid()
+
+        self.L_stack = nn.Sequential(
+            self.fc0,
+            self.relu,
+            self.fc1,
+            self.relu,
+            self.fc2,
+            self.sigmoid
+        )
+        
+    # function to apply the neural network: use all the ingredients above to define the forward pass
+    def forward(self, x):
+        y_pred = self.L_stack(x)
+        return y_pred
+
+def initialize_MLP(input_size, hidden1_size, hidden2_size, output_size):
+    # create an instance of the MLP_nn class
+    MLP = MLP_nn(input_size, hidden1_size, hidden2_size, output_size)
+    return MLP
+
+# Tensor and scale the data for Pytorch
 
 def scaled_tensorize_data(X_train, y_train, X_test, y_test):
     
