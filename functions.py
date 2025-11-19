@@ -7,6 +7,8 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import StandardScaler
 
 # Functions and Classes
 
@@ -48,6 +50,29 @@ def initialize_MLP(input_size, hidden1_size, hidden2_size, output_size):
     # create an instance of the MLP_nn class
     MLP = MLP_nn(input_size, hidden1_size, hidden2_size, output_size)
     return MLP
+
+# Tensor and scale the data for Pytorch   
+
+def scaled_tensorize_data(X_train, y_train, X_test, y_test):
+    
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+    X_train = torch.tensor(X_train, dtype=torch.float32)
+    y_train = torch.tensor(y_train.values, dtype=torch.float32)  # y_train est encore une Series
+    X_val   = torch.tensor(X_test, dtype=torch.float32)
+    y_val   = torch.tensor(y_test.values, dtype=torch.float32)
+    return X_train, y_train, X_val, y_val
+
+# Create DataLoaders for training and validation
+
+def datasets_and_loaders(X_train, y_train, X_val, y_val, batch_size):
+    train_ds = TensorDataset(X_train, y_train)
+    val_ds   = TensorDataset(X_val, y_val)
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  pin_memory=True, num_workers=0)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=0)
+    return train_loader, val_loader
 
 # Here we define a function to pass arguments and run the training
 
