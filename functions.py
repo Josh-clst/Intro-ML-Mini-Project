@@ -218,7 +218,10 @@ def train_model(
         "lr": []
     }
 
-    
+    # Best validation loss for saving the best model
+    best_val_loss = np.inf
+    epochs_no_improve = 0
+
     # Here we accumulate the losses over batches to compute the total values over an epoch, and store them
 
 
@@ -233,7 +236,7 @@ def train_model(
             yb = yb.to(device)
 
             optimizer.zero_grad()
-            outputs = model(Xb).squeeze()        # raw logits (binary example)
+            outputs = model(Xb).squeeze()
             loss = loss_fn(outputs, yb)
             loss.backward()
             optimizer.step()
@@ -243,8 +246,7 @@ def train_model(
             train_loss_accum += loss.item() * batch_size
 
             # predictions (binary)
-            probs = torch.sigmoid(outputs)
-            preds = (probs >= 0.5).int()
+            preds = (outputs >= 0.5).int()
             train_correct += torch.sum(preds == yb.int()).item()
             train_total += batch_size
 
@@ -266,8 +268,7 @@ def train_model(
                 bs = Xv.size(0)
                 val_loss_accum += l_v.item() * bs
 
-                probs_v = torch.sigmoid(out_v)
-                preds_v = (probs_v >= 0.5).int()
+                preds_v = (out_v >= 0.5).int()
                 val_correct += torch.sum(preds_v == yv.int()).item()
                 val_total += bs
 
