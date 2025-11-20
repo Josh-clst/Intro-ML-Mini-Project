@@ -11,8 +11,28 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import VarianceThreshold
+
 
 # Functions and Classes
+def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
+    pipe = Pipeline([
+        ("imp", SimpleImputer(strategy="median")),
+        ("var", VarianceThreshold(threshold=thrs)),
+        ("scaler", StandardScaler()),
+        ("clf", LogisticRegression(max_iter=1000))
+    ])
+    pipe.fit(X_tr, y_tr)
+    print("Score test:", pipe.score(X_te, y_te))
+
+    # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
+    scores = cross_val_score(pipe, X, y, cv=cv, scoring=f1, n_jobs=-1)
+    print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
+    return pipe
 
 
 ## ------------- LDA and QDA (Linear and Quadratic Discriminant Analysis) -------------
