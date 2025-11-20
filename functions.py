@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
@@ -17,11 +16,6 @@ import matplotlib.pyplot as plt
 
 
 ## ------------- LDA and QDA (Linear and Quadratic Discriminant Analysis) -------------
-
-# define training/test split
-
-def dataset_split(X):
-    X_train, X_test, y_train, y_test = train_test_split(X, test_size=0.33)
 
 # LDA classification algorithm (using Mahalanobis distance)
 
@@ -124,14 +118,12 @@ def plot_decision_boundary_cov(x,y,X,labels,class_means, cov, classifier):
 class MLP_nn(nn.Module):
     
     # class initialization, here we define all the ingredients that we will need for the network (layers, activations...)
-    def __init__(self, input_size, hidden1_size, hidden2_size, output_size):
+    def __init__(self, input_size, hidden1_size, output_size):
         super(MLP_nn, self).__init__()
         # fully connected layer with linear activation
         self.fc0 = nn.Linear(input_size, hidden1_size)
         # fully connected layer with linear activation
-        self.fc1 = nn.Linear(hidden1_size, hidden2_size)
-        # fully connected layer with linear activation
-        self.fc2 = nn.Linear(hidden2_size, output_size)
+        self.fc2 = nn.Linear(hidden1_size, output_size)
         # ReLu activation
         self.relu = nn.ReLU()
         # sigmoid activation
@@ -139,8 +131,6 @@ class MLP_nn(nn.Module):
 
         self.L_stack = nn.Sequential(
             self.fc0,
-            self.relu,
-            self.fc1,
             self.relu,
             self.fc2,
             self.sigmoid
@@ -151,23 +141,30 @@ class MLP_nn(nn.Module):
         y_pred = self.L_stack(x)
         return y_pred
 
-def initialize_MLP(input_size, hidden1_size, hidden2_size, output_size):
+def initialize_MLP(input_size, hidden1_size, output_size):
     # create an instance of the MLP_nn class
-    MLP = MLP_nn(input_size, hidden1_size, hidden2_size, output_size)
+    MLP = MLP_nn(input_size, hidden1_size, output_size)
     return MLP
 
 # Tensor and scale the data for Pytorch
 
-def scaled_tensorize_data(X_train, y_train, X_test, y_test):
+def scaled_tensorize_data(X_train, y_train, X_val, y_val, X_test, y_test):
     
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
+    X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
+
     X_train = torch.tensor(X_train, dtype=torch.float32)
-    y_train = torch.tensor(y_train.values, dtype=torch.float32)  # y_train est encore une Series
-    X_val   = torch.tensor(X_test, dtype=torch.float32)
-    y_val   = torch.tensor(y_test.values, dtype=torch.float32)
-    return X_train, y_train, X_val, y_val
+    y_train = torch.tensor(y_train, dtype=torch.float32)  # y_train est encore une Series
+
+    X_val   = torch.tensor(X_val, dtype=torch.float32)
+    y_val   = torch.tensor(y_val, dtype=torch.float32)
+
+    X_test  = torch.tensor(X_test, dtype=torch.float32)
+    y_test  = torch.tensor(y_test, dtype=torch.float32)
+
+    return X_train, y_train, X_val, y_val, X_test, y_test
 
 # Create DataLoaders for training and validation
 
@@ -189,8 +186,8 @@ def train_model(
     optimizer,
     device,
     epochs=30,
-    print_every_epochs=1,
     scheduler_type=None,
+    print_every_epochs=1,
     save_best_path=None
     ):
     """
