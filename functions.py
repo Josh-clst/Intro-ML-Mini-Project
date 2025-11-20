@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-
+from sklearn.metrics import accuracy_score
 
 # Functions and Classes
 
@@ -324,8 +324,7 @@ def print_loss_curve(losses):
     plt.xlabel('Epoch', size=20)
     plt.ylabel('Loss value', size=20)
 
-def evaluate_MLP(MLP, X_t_test, y_t_test):
-    # compute test accuracy
-    y_pred_test = MLP.forward(X_t_test)
-    accuracy = torch.sum((y_pred_test.detach().numpy()>0.5) == y_t_test.numpy())/y_t_test.size(0)
-    print('Test accuracy: ', accuracy)
+def evaluate_MLP(model, X_test, Y_test):
+    predicted_y = (model.forward(X_test).detach().cpu() > 0.5).numpy()
+    accuracy = accuracy_score(Y_test.detach().cpu(), predicted_y)
+    return accuracy
