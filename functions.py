@@ -30,7 +30,7 @@ def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
     print("Score test:", pipe.score(X_te, y_te))
 
     # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
-    scores = cross_val_score(pipe, X, y, cv=cv, scoring=f1, n_jobs=-1)
+    scores = cross_val_score(pipe, X, y, cv='cv', scoring='f1', n_jobs=-1)
     print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
     return pipe
 
