@@ -10,9 +10,29 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import VarianceThreshold
 
 
 # Functions and Classes
+def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
+    pipe = Pipeline([
+        ("imp", SimpleImputer(strategy="median")),
+        ("var", VarianceThreshold(threshold=thrs)),
+        ("scaler", StandardScaler()),
+        ("clf", LogisticRegression(max_iter=1000))
+    ])
+    pipe.fit(X_tr, y_tr)
+    print("Score test:", pipe.score(X_te, y_te))
+
+    # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
+    scores = cross_val_score(pipe, X, y, cv=cv, scoring=f1, n_jobs=-1)
+    print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
+    return pipe
 
 
 ## ------------- LDA and QDA (Linear and Quadratic Discriminant Analysis) -------------
@@ -223,7 +243,10 @@ def train_model(
         "lr": []
     }
 
-    
+    # Best validation loss for saving the best model
+    best_val_loss = np.inf
+    epochs_no_improve = 0
+
     # Here we accumulate the losses over batches to compute the total values over an epoch, and store them
 
 
@@ -238,7 +261,7 @@ def train_model(
             yb = yb.to(device)
 
             optimizer.zero_grad()
-            outputs = model(Xb).squeeze()        # raw logits (binary example)
+            outputs = model(Xb).squeeze()
             loss = loss_fn(outputs, yb)
             loss.backward()
             optimizer.step()
@@ -248,8 +271,7 @@ def train_model(
             train_loss_accum += loss.item() * batch_size
 
             # predictions (binary)
-            probs = torch.sigmoid(outputs)
-            preds = (probs >= 0.5).int()
+            preds = (outputs >= 0.5).int()
             train_correct += torch.sum(preds == yb.int()).item()
             train_total += batch_size
 
@@ -271,8 +293,7 @@ def train_model(
                 bs = Xv.size(0)
                 val_loss_accum += l_v.item() * bs
 
-                probs_v = torch.sigmoid(out_v)
-                preds_v = (probs_v >= 0.5).int()
+                preds_v = (out_v >= 0.5).int()
                 val_correct += torch.sum(preds_v == yv.int()).item()
                 val_total += bs
 
@@ -328,8 +349,7 @@ def print_loss_curve(losses):
     plt.xlabel('Epoch', size=20)
     plt.ylabel('Loss value', size=20)
 
-def evaluate_MLP(MLP, X_t_test, y_t_test):
-    # compute test accuracy
-    y_pred_test = MLP.forward(X_t_test)
-    accuracy = torch.sum((y_pred_test.detach().numpy()>0.5) == y_t_test.numpy())/y_t_test.size(0)
-    print('Test accuracy: ', accuracy)
+def evaluate_MLP(model, X_test, Y_test):
+    predicted_y = (model.forward(X_test).detach().cpu() > 0.5).numpy()
+    accuracy = accuracy_score(Y_test.detach().cpu(), predicted_y)
+    return accuracy
