@@ -23,7 +23,7 @@ from sklearn.metrics import make_scorer, f1_score, accuracy_score
 
 # Functions and Classes
 
-#Groupe de correlation 
+#Correlation groups
 def corr_groups(X: pd.DataFrame, threshold: float = 0.9):
     """
     Regroupe les colonnes corrélées (|corr| >= threshold) en composantes connexes et
@@ -62,13 +62,13 @@ def test_corr_groups():
     }
     df_test = pd.DataFrame(data)
 
-    # Appel de la fonction corr_groups
+    # Call of function corr_groups
     groups = corr_groups(df_test, threshold=0.9)
 
-    # Résultat attendu
+    # Expected result
     expected_groups = [['A', 'B', 'E'], ['C'], ['D']]
 
-    # Vérification du résultat
+    # Checking the result
     assert all(sorted(group) in expected_groups for group in groups), f"Expected {expected_groups}, but got {groups}"
     print("test_corr_groups passed.")
 
@@ -85,7 +85,7 @@ def shuffle_group(X: pd.DataFrame, group, random_state: int = 42):
         Xp[c] = Xp[c].to_numpy()[perm]
     return Xp
 
-# helper pour évaluer l’impact moyen d’un groupe sur accuracy et F1
+# helper to determine the impact of a group on accuracy and F1 score
 def impact_per_group(pipe, X_te, y_te, groups, metric="f1", n_repeats=3, seed=0):
     """
     Mesure l'importance de chaque groupe corrélé en shufflant uniquement
@@ -108,7 +108,7 @@ def impact_per_group(pipe, X_te, y_te, groups, metric="f1", n_repeats=3, seed=0)
     - size  (taille du groupe)
     - drop  (baisse moyenne de la métrique choisie)
     """
-    # baseline avec predict
+    # baseline with predict
     y_pred_base = pipe.predict(X_te)
     if metric == "accuracy":
         base = accuracy_score(y_te, y_pred_base)
@@ -120,14 +120,14 @@ def impact_per_group(pipe, X_te, y_te, groups, metric="f1", n_repeats=3, seed=0)
     rng = np.random.default_rng(seed)
     rows = []
 
-    # pour chaque groupe, on shuffle ce groupe et on mesure la baisse
+    # we shuffle each group and note the drop of score
     for g in groups:
         drops = []
         for _ in range(n_repeats):
             Xs = X_te.copy()
             perm = rng.permutation(len(Xs))
             for c in g:
-                Xs[c] = Xs[c].to_numpy()[perm]   # même permutation pour toutes les colonnes du groupe
+                Xs[c] = Xs[c].to_numpy()[perm]   # same permutation for each column from the group
             yhat = pipe.predict(Xs)
             drops.append(base - scorer(y_te, yhat))
         rows.append({
@@ -136,7 +136,7 @@ def impact_per_group(pipe, X_te, y_te, groups, metric="f1", n_repeats=3, seed=0)
             "drop": float(np.mean(drops))
         })
 
-    return pd.DataFrame(rows).sort_values("drop", ascending=False).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values("drop", ascending=False)
 
 
 # Logistic regression with Threshold
@@ -155,7 +155,6 @@ def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
     pipe.fit(X_tr, y_tr)
     print("Score test:", pipe.score(X_te, y_te))
 
-    # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
     scores = cross_val_score(pipe, X, y, cv="cv", scoring="f1", n_jobs=-1)
     print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
     return pipe
