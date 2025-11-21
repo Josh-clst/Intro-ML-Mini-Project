@@ -349,7 +349,12 @@ def print_loss_curve(losses):
     plt.xlabel('Epoch', size=20)
     plt.ylabel('Loss value', size=20)
 
-def evaluate_MLP(model, X_test, Y_test):
+def evaluate_MLP(model, X_test, Y_test, device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    X_test = X_test.to(device)
     predicted_y = (model.forward(X_test).detach().cpu() > 0.5).numpy()
     accuracy = accuracy_score(Y_test.detach().cpu(), predicted_y)
+    
     return accuracy
