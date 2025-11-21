@@ -10,16 +10,119 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_selection import VarianceThreshold
+import numpy as np
+import pandas as pd
+from sklearn.metrics import make_scorer, f1_score, accuracy_score
+
 
 
 # Functions and Classes
+
+#Groupe de correlation 
+def corr_groups(X: pd.DataFrame, threshold: float = 0.9):
+    """
+    Regroupe les colonnes corrélées (|corr| >= threshold) en composantes connexes et
+    Retourne une liste de listes de noms de colonnes.
+    """
+    C = X.corr().abs()
+    cols = list(X.columns)
+    seen, groups = set(), []
+    for c in cols:
+        if c in seen: 
+            continue
+        # BFS minimaliste
+        grp, stack = [], [c]
+        seen.add(c)
+        while stack:
+            u = stack.pop()
+            grp.append(u)
+            neigh = C.index[(C[u] >= threshold) & (C.index != u)]
+            for v in neigh:
+                if v not in seen:
+                    seen.add(v)
+                    stack.append(v)
+        groups.append(sorted(grp))
+    return groups
+
+# Group shuffler (for testing importance)
+def shuffle_group(X: pd.DataFrame, group, random_state: int = 42):
+    """
+    Retourne une copie de X où tt les colonnes du groupe sont shuffles
+    avec la même permutation (on casse le lien de ce groupe avec y).
+    """
+    Xp = X.copy()
+    rng = np.random.default_rng(random_state)
+    perm = rng.permutation(len(Xp))
+    for c in group:
+        Xp[c] = Xp[c].to_numpy()[perm]
+    return Xp
+
+# helper pour évaluer l’impact moyen d’un groupe sur accuracy et F1
+def impact_per_group(pipe, X_te, y_te, groups, metric="f1", n_repeats=3, seed=0):
+    """
+    Mesure l'importance de chaque groupe corrélé en shufflant uniquement
+    les colonnes du groupe (même permutation pour tout le groupe) sur X_te,
+    puis en observant la baisse de performance moyenne.
+
+    Parameters
+    ----------
+    pipe : estimator déjà fit (Pipeline scikit-learn)
+    X_te, y_te : jeu de test
+    groups : list[list[str]]  # groupes de colonnes corrélées
+    metric : {"f1","accuracy"}
+    n_repeats : int, nb de shuffles par groupe (moyenne)
+    seed : int, graine
+
+    Returns
+    -------
+    pd.DataFrame trié décroissant par 'drop' avec colonnes:
+    - group (tuple de colonnes)
+    - size  (taille du groupe)
+    - drop  (baisse moyenne de la métrique choisie)
+    """
+    # baseline avec predict
+    y_pred_base = pipe.predict(X_te)
+    if metric == "accuracy":
+        base = accuracy_score(y_te, y_pred_base)
+        scorer = accuracy_score
+    else:
+        base = f1_score(y_te, y_pred_base)
+        scorer = f1_score
+
+    rng = np.random.default_rng(seed)
+    rows = []
+
+    # pour chaque groupe, on shuffle ce groupe et on mesure la baisse
+    for g in groups:
+        drops = []
+        for _ in range(n_repeats):
+            Xs = X_te.copy()
+            perm = rng.permutation(len(Xs))
+            for c in g:
+                Xs[c] = Xs[c].to_numpy()[perm]   # même permutation pour toutes les colonnes du groupe
+            yhat = pipe.predict(Xs)
+            drops.append(base - scorer(y_te, yhat))
+        rows.append({
+            "group": tuple(g),
+            "size": len(g),
+            "drop": float(np.mean(drops))
+        })
+
+    return pd.DataFrame(rows).sort_values("drop", ascending=False).reset_index(drop=True)
+
+
+# Logistic regression with Threshold
 def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
+    """
+    Fit un pipeline (Imputer -> VarianceThreshold(thrs) -> StandardScaler -> LogisticRegression),
+    affiche le score test, et renvoie le pipeline entraîné.
+    NOTE: pas de cross-validation ici (pas besoin de cv/f1).
+    """
     pipe = Pipeline([
         ("imp", SimpleImputer(strategy="median")),
         ("var", VarianceThreshold(threshold=thrs)),
@@ -28,10 +131,6 @@ def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
     ])
     pipe.fit(X_tr, y_tr)
     print("Score test:", pipe.score(X_te, y_te))
-
-    # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
-    scores = cross_val_score(pipe, X, y, cv=cv, scoring=f1, n_jobs=-1)
-    print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
     return pipe
 
 
