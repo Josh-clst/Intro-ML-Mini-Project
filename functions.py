@@ -49,6 +49,29 @@ def corr_groups(X: pd.DataFrame, threshold: float = 0.9):
         groups.append(sorted(grp))
     return groups
 
+# Unit test for corr_groups
+
+def test_corr_groups():
+    # Création d'un DataFrame de test
+    data = {
+        'A': [1, 2, 3, 4, 5],
+        'B': [2, 4, 6, 8, 10],  # Parfaitement corrélé avec A
+        'C': [5, 4, 3, 2, 1],   # Parfaitement corrélé négativement avec A
+        'D': [1, 0, 1, 0, 1],   # Non corrélé avec A
+        'E': [10, 20, 30, 40, 50] # Parfaitement corrélé avec B
+    }
+    df_test = pd.DataFrame(data)
+
+    # Appel de la fonction corr_groups
+    groups = corr_groups(df_test, threshold=0.9)
+
+    # Résultat attendu
+    expected_groups = [['A', 'B', 'E'], ['C'], ['D']]
+
+    # Vérification du résultat
+    assert all(sorted(group) in expected_groups for group in groups), f"Expected {expected_groups}, but got {groups}"
+    print("test_corr_groups passed.")
+
 # Group shuffler (for testing importance)
 def shuffle_group(X: pd.DataFrame, group, random_state: int = 42):
     """
