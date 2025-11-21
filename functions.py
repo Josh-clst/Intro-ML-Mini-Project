@@ -131,6 +131,10 @@ def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
     ])
     pipe.fit(X_tr, y_tr)
     print("Score test:", pipe.score(X_te, y_te))
+
+    # IMPORTANT: on passe l'ESTIMATEUR (pipe), pas la fonction pipe_var
+    scores = cross_val_score(pipe, X, y, cv="cv", scoring="f1", n_jobs=-1)
+    print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
     return pipe
 
 
@@ -147,7 +151,10 @@ def LDA_classifier_train_cov(training_data,training_labels,nb_classes):
     for i in range(nb_classes):
         class_i_data = training_data[training_labels == i,:]         
         class_means[i,:] = np.mean(class_i_data,axis = 0)  
-        class_cov[i,:,:] = np.cov(training_data[training_labels == i,:].T)   # we need to estimate the covariance for each class
+        
+    # 2. Compute pooled covariance (shared covariance)
+    class_cov = np.cov(training_data, rowvar=False)                # we need to estimate the covariance for each class
+       # class_cov[i,:,:] = np.cov(training_data[training_labels == i,:].T)   # we need to estimate the covariance for each class
     return class_means, class_cov
 
 def LDA_classifier_predict_cov(test_data,class_means,class_cov,nb_classes):
@@ -231,7 +238,9 @@ def plot_decision_boundary_cov(x,y,X,labels,class_means, cov, classifier):
     plt.scatter(X[:,0],X[:,1], c = labels)
     plt.contourf(x_coords, y_coords, classify_grid, cmap=plt.cm.RdBu, alpha = 0.6)
 
-# Classification by neural network
+
+
+## ------------- Classification by neural network -------------
 
 # Declare a class for MLP (multilayer perceptron)
 class MLP_nn(nn.Module):
@@ -443,7 +452,12 @@ def print_loss_curve(losses):
     plt.xlabel('Epoch', size=20)
     plt.ylabel('Loss value', size=20)
 
-def evaluate_MLP(model, X_test, Y_test):
+def evaluate_MLP(model, X_test, Y_test, device=None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    X_test = X_test.to(device)
     predicted_y = (model.forward(X_test).detach().cpu() > 0.5).numpy()
     accuracy = accuracy_score(Y_test.detach().cpu(), predicted_y)
+    
     return accuracy
