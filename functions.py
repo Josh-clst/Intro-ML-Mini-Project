@@ -155,7 +155,7 @@ def pipe_with_variance_thresh(X_tr, y_tr, X_te, y_te, thrs, X, y):
     pipe.fit(X_tr, y_tr)
     print("Score test:", pipe.score(X_te, y_te))
 
-    scores = cross_val_score(pipe, X, y, cv="cv", scoring="f1", n_jobs=-1)
+    scores = cross_val_score(pipe, X, y, cv=5, scoring="f1", n_jobs=-1)
     print("VarianceThreshold F1:", scores.mean(), "+/-", scores.std())
     return pipe
 
