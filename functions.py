@@ -103,37 +103,32 @@ def train_test_accuracy_cov(X_train,y_train,X_test,y_test, class_means, cov, cla
     test_accuracy = (np.sum((y_test-predicted_labels_test) == 0)/np.shape(y_test))[0]
     return training_accuracy, test_accuracy
 
-# plot functions
 
-def plot_decision_boundary_cov(x,y,X,labels,class_means, cov, classifier):
-    # to be completed
-    # x and y are the vectors giving the extent of the 2D grid
-    # X is the data
-    # labels are the classification labels
-    # classifier is any trained classifier that can be used for prediction
-    # nb_classes = np.shape(class_means)[0]
-    # [xx,yy] = np.meshgrid(x,y)
-    # Z = classifier(np.c_[xx.ravel(), yy.ravel()],class_means,cov,nb_classes)
-    # Z = Z.reshape(grid_size,grid_size)
-    # plt.scatter(X[:,0],X[:,1], c = labels)
-    # plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu, alpha = 0.6)
 
-    nb_classes = np.shape(class_means)[0]
 
-    x_coords, y_coords = np.meshgrid(x, y)
+## ------------- Random Forest -------------
+
+from sklearn.ensemble import RandomForestClassifier
+
+def RF_pred(X_train, y_train, X_test):
+    # Initialize Random Forest Classifier
+    # n_estimators = number of trees in the forest
+    # random_state ensures reproducibility
+    rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
     
-    # Convert the 2D grids into a list of coordinate pairs
-    all_grid_points = np.column_stack([x_coords.flatten(), y_coords.flatten()])
-    
-    # Classify all points at once (each coordinate pair is a point)
-    classify_grid_flat = classifier(all_grid_points, class_means, cov, nb_classes)
-    
-    # Reshape back to 2D grid for plotting
-    classify_grid = classify_grid_flat.reshape(x_coords.shape)
+    # Train the model
+    rf_model.fit(X_train, y_train)
 
-    # Plot the results
-    plt.scatter(X[:,0],X[:,1], c = labels)
-    plt.contourf(x_coords, y_coords, classify_grid, cmap=plt.cm.RdBu, alpha = 0.6)
+    # Make predictions on the test set
+    y_rf_pred = rf_model.predict(X_test)
+    return y_rf_pred
+
+def RF_accuracy(y_test, y_rf_pred):
+
+    # Evaluate the model
+    rf_acc = accuracy_score(y_test, y_rf_pred)
+    print(f"RF accuracy: {rf_acc:.2f}")
+
 
 
 
